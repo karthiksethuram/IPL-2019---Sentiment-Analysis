@@ -1,14 +1,42 @@
+
+
+############################################################################################################################
+##                                  SENTIMENT ANALYSIS OF IPL DATA                                                        ##
+
+## This code does the sentiment analysis of the tweets.csv and the manakad. csv file and plots the results                ##
+												 
+############################################################################################################################
+
+
+
+
+############################################################################################################################
+##                                PART -1 SENTIMENT ANALYSIS OF #IPL TWEETS                                               ##												
+############################################################################################################################
+
+
+
+
+#IMPORTING THE LIBRARIES REQUIRED
 library(stringr)
+library(twitteR)
+library(dplyr)
+library("SnowballC")
+library("tm")
+library("syuzhet")
+library(ggplot2)
+library(data.table)
 
-
-
+#SET THE WORKING DIRECTORY AND LOADING THE TWEET.CSV
 setwd("C:/Users/karth/Documents/Rutgers/Course Materials/Spring 2019/Data Wrangling/Project")
 tweets<-read.csv("tweet.csv",stringsAsFactors = FALSE)
 
-#clean up any duplicate tweets from the data frame using #dplyr::distinct
+
+#CLEAN UP ANY DUPLICATE TWEETS FROM THE DATA FRAME USING #DPLYR::DISTINCT
 tweets<-distinct(tweets)
 #tweets$text<-str(tweets$text)
 
+#CLEAN SPECIAL CHARACTERS FROM THE TWEET TEXT
 tweets.df <- gsub("http.*","",tweets$text)
 tweets.df <- gsub("http.*","",tweets.df)
 tweets.df <- gsub("http.*","",tweets.df)
@@ -16,7 +44,7 @@ tweets.df <- gsub("http.*","",tweets.df)
 tweets$text=tweets.df
 
 
-#FINDING THE MOST COMMON WORDS IN THE TWEET TEXT
+#FINDING THE MOST COMMON WORDS IN THE TWEET TEXT - USING DPLYR AND FILTERING OUT STOP WORDS AND SOME COMON WORDS
 Words <- tweets %>%
   dplyr::select(text) %>%
   unnest_tokens(word, text) %>%
@@ -24,7 +52,7 @@ Words <- tweets %>%
                                                  "wins","win","6","4",
                                                  "0001f981","vivoipl","overs","runs","balls","game","special","team")) 
 
-
+#PLOTTING THE MOST COMMON WORDS IN THE TWEET TEXT - USING DPLYR AND FILTERING OUT STOP WORDS AND SOME COMON WORDS
 Words %>%
   count(word, sort = TRUE) %>%
   top_n(15) %>%
@@ -38,13 +66,13 @@ Words %>%
        title = "Count of unique words found in tweets")
 
 
-# join sentiment classification to the tweet words
+#JOIN SENTIMENT CLASSIFICATION TO THE TWEET WORDS
 Senti_word_counts <- Words %>%
   inner_join(get_sentiments("bing")) %>%
   count(word, sentiment, sort = TRUE) %>%
   ungroup()
-## Joining, by = "word"
 
+#PLOTTING THE SENTIMENT CLASSIFICATION TO THE TWEET WORDS
 Senti_word_counts %>%
   group_by(sentiment) %>%
   top_n(10) %>%
@@ -58,7 +86,6 @@ Senti_word_counts %>%
        x = NULL) +
   coord_flip()
 
-## Selecting by n
 
 
 #GETTING THE SENTIMENT SCORE RESULTS
@@ -67,7 +94,7 @@ emotion.df <- get_nrc_sentiment(tweets.df)
 results <- cbind(tweets.df, emotion.df) 
 head(results)
 
-#Plotting the overall Sentiments
+#PLOTTING THE OVERALL SENTIMENTS - EMOTIONS AND THE POSITIVE VS NEGATIVE
 overall=t(emotion.df)
 overall <- data.frame(rowSums(overall))
 names(overall)[1] <- "count"
@@ -77,22 +104,21 @@ qplot(sentiment, data=overall[1:8,], weight=count, geom="bar",fill=sentiment)+gg
 qplot(sentiment, data=overall[9:10,], weight=count, geom="bar",fill=sentiment)+ggtitle("Overall Sentiments")
 
 
-#Team wise tweets count - for CSK
+#TEAM WISE TWEETS COUNT - FOR CSK
 results_CSK=results[results$tweets.df %like% "CSK", -1]
-results_CSK <- data.frame(colSums(results_CSK))
+results_CSK <- data.frame(colMeans(results_CSK))
 results_CSK=as.data.frame(t(results_CSK))
 results_CSK$team="CSK"
 results_teamwise<-results_CSK
 
 
-#Team wise tweets count - for Other Teams
+#FUNCTION TO APPEND TEAM WISE TWEETS COUNT - FOR OTHER TEAMS
 teamwise_score= function(team){
   print(team)
   results_t=results[results$tweets.df %like% team, -1]
-  results_t <- data.frame(colSums(results_t))
+  results_t <- data.frame(colMeans(results_t))
   results_t=as.data.frame(t(results_t))
   results_t$team=team
-  
   return (results_t)
 }
 
@@ -106,7 +132,7 @@ results_teamwise<-rbind(results_teamwise,teamwise_score("KXIP"))
 rownames(results_teamwise)<-NULL
 
 
-
+#PLOTS FOR THE TEAM WISE SENTIMENT ANALYSIS - 8 EMOTIONS AND POSTIVE VS NEGATIVE OF NRC LEXICON
 qplot(team, data=results_teamwise, weight=positive, geom="bar",fill=team)+ggtitle("Teamwise - Positive Sentiments")
 qplot(team, data=results_teamwise, weight=negative, geom="bar",fill=team)+ggtitle("Teamwise - Negative Sentiments")
 qplot(team, data=results_teamwise, weight=trust, geom="bar",fill=team)+ggtitle("Teamwise - Trust")
@@ -119,14 +145,17 @@ qplot(team, data=results_teamwise, weight=joy, geom="bar",fill=team)+ggtitle("Te
 qplot(team, data=results_teamwise, weight=fear, geom="bar",fill=team)+ggtitle("Teamwise - Fear")
 
 
-#########################################Mankading Incident##########################################################
+############################################################################################################################
+##                                PART -2 SENTIMENT ANALYSIS OF MANKADING RELATED TWEETS                                  ##												
+############################################################################################################################
 
+
+#SET THE WORKING DIRECTORY AND LOADING THE MANKAD.CSV AND TAKING ONLY THE NECESSARY COLUMNS
 setwd("C:/Users/karth/Documents/Rutgers/Course Materials/Spring 2019/Data Wrangling/Project")
 tweets_mankad<-read.csv("mankad.csv",stringsAsFactors = FALSE)
-
 tweets_mankad=tweets_mankad[,1:2]
 
-# function to get various sentiment scores, using the syuzhet package
+# FUNCTION TO GET VARIOUS SENTIMENT SCORES, USING THE SYUZHET PACKAGE - DIFFERENT METHODS ARE USED
 scoreSentiment = function(tab)
 {
   tab$syuzhet = get_sentiment(tab$text, method="syuzhet")
@@ -139,22 +168,17 @@ scoreSentiment = function(tab)
   return(tab)
 }
 
-# get the sentiment scores for the tweets
+# GET THE SENTIMENT SCORES FOR THE TWEETS USING THE ABOVE FUNCTION
 tweets_mankad = scoreSentiment(tweets_mankad)
 
-
-
-
-#FINDING THE MOST COMMON WORDS IN THE TWEET TEXT------- FOR MANKADING
-
-
+#CLEANING THE TWEET TEXT DATA BY REMOVING ALL SPECIAL CHARACTERS 
 tweets.mankad <- gsub("http.*","",tweets_mankad$text)
 tweets.mankad <- gsub("http.*","",tweets.mankad)
 tweets.mankad <- gsub("http.*","",tweets.mankad)
 tweets.mankad <- gsub("http.*","",tweets.mankad)
 tweets_mankad$text=tweets.mankad
 
-
+#FINDING THE MOST COMMON WORDS IN THE TWEET TEXT------- FOR MANKADING AFTER REMOVING STOP WORDS AND SOME MOST COMMON WORDS
 Words_mankad <- tweets_mankad %>%
   dplyr::select(text) %>%
   unnest_tokens(word, text) %>%
@@ -162,7 +186,7 @@ Words_mankad <- tweets_mankad %>%
                                                  "wins","win","6","4",
                                                  "0001f981","vivoipl","overs","runs","balls","game","special","team")) 
 
-
+#PLOTTING THE MOST COMMON WORDS IN THE TWEET TEXT------- FOR MANKADING AFTER REMOVING STOP WORDS AND SOME MOST COMMON WORDS
 Words_mankad %>%
   count(word, sort = TRUE) %>%
   top_n(15) %>%
@@ -176,13 +200,14 @@ Words_mankad %>%
        title = "Count of unique words found in tweets")
 
 
-# join sentiment classification to the tweet words
+#JOIN SENTIMENT CLASSIFICATION TO THE TWEET WORDS
 Senti_word_counts_man <- Words_mankad %>%
   inner_join(get_sentiments("bing")) %>%
   count(word, sentiment, sort = TRUE) %>%
   ungroup()
 ## Joining, by = "word"
 
+#PLOTTING THE SENTIMENT CLASSIFICATION TO THE TWEET WORDS
 Senti_word_counts_man %>%
   group_by(sentiment) %>%
   top_n(10) %>%
@@ -198,9 +223,7 @@ Senti_word_counts_man %>%
 
 
 
-
-
-#Plotting NRC algo Sentiment results
+#PLOTTING NRC ALGO SENTIMENT RESULTS - EMOTION WISE AND POSITIVE VS NEGATIVE
 mankad_nrc_results<-tweets_mankad[,7:16]
 mankad_nrc_results=t(mankad_nrc_results)
 mankad_nrc_results <- data.frame(rowSums(mankad_nrc_results))
@@ -210,13 +233,15 @@ rownames(mankad_nrc_results) <- NULL
 qplot(sentiment, data=mankad_nrc_results[1:8,], weight=count, geom="bar",fill=sentiment)+ggtitle("Overall Sentiments")
 qplot(sentiment, data=mankad_nrc_results[9:10,], weight=count, geom="bar",fill=sentiment)+ggtitle("Overall Sentiments")
 
-# COMPARING RESULTS OF OTHER ALGORITHMS
 
+# COMPARING RESULTS OF OTHER ALGORITHMS
 mankad_other_results<-tweets_mankad[,3:6]
 mankad_other_results=t(mankad_other_results)
 mankad_other_results <- data.frame(rowMeans(mankad_other_results))
 names(mankad_other_results)[1] <- "Mean"
 mankad_other_results <- cbind("sentiment" = rownames(mankad_other_results), mankad_other_results)
 rownames(mankad_other_results) <- NULL
+
+# PLOT TO COMPARE RESULTS OF VARIOUS ALGORITHMS - AVERAGE SENTIMENT SCORE
 qplot(sentiment, data=mankad_other_results[1:4,], weight=Mean, geom="bar",fill=sentiment)+ggtitle("Average Sentiments across Methods")
 
